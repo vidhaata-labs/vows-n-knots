@@ -1,41 +1,41 @@
-from langchain.agents import create_agent
-from langchain.messages import HumanMessage
+import sys
+from pathlib import Path
 
-from vows_n_knots.adapters.model import create_chat_model
+_SRC = Path(__file__).resolve().parent.parent
+if str(_SRC) not in sys.path:
+    sys.path.insert(0, str(_SRC))
+
+from vows_n_knots.brief import brief_from_legacy_form
+from vows_n_knots.cache import SearchCache
 from vows_n_knots.config.logging_config import configure_logging, get_logger
-from vows_n_knots.config.settings import load_settings
+from vows_n_knots.config.research import CACHE_PATH
+from vows_n_knots.config.settings import PROJECT_ROOT, load_settings
+from vows_n_knots.locations import load_places
+from vows_n_knots.run import run_plan
+from vows_n_knots.sample_brief import sample_form_values
 
 _settings = load_settings()
 configure_logging(_settings.log_level)
-
-# Agents build the sub-agents at import time, so logging has to be configured first.
-from vows_n_knots.agents import delegate_to_sub_agent_1, delegate_to_sub_agent_2
-from vows_n_knots.prompts import USER_PROMPT_FOR_MAIN_AGENT, WEDDING_PLANNER_AGENT_PROMPT
 
 logger = get_logger(__name__)
 
 
 def main() -> None:
     logger.info("Asking user for their requirements...")
-    user_requirements = input("Please enter your requirements and preferences for your wedding:\n")
+    typed = input("Please enter your requirements and preferences for your wedding:\n")
 
-    updated_system_prompt = WEDDING_PLANNER_AGENT_PROMPT.format(requirements=user_requirements)
+    places = load_places(PROJECT_ROOT / "data" / "us_places.csv")
+    brief = brief_from_legacy_form({**sample_form_values(), "must_haves": typed}, places)
 
-    logger.info("Initializing main wedding planner agent...")
-    main_wedding_planner_agent = create_agent(
-        model=create_chat_model(),
-        tools=[delegate_to_sub_agent_1, delegate_to_sub_agent_2],
-        name="MainWeddingPlannerAgent",
-        system_prompt=updated_system_prompt,
-    )
+    logger.info("Running research and synthesis...")
+    cache = SearchCache(CACHE_PATH)
+    try:
+        plan = run_plan(brief, cache=cache)
+    finally:
+        cache.close()
 
-    logger.info("invoking main wedding planner agent...")
-    main_wedding_planner_agent_response = main_wedding_planner_agent.invoke(
-        {"messages": [HumanMessage(content=USER_PROMPT_FOR_MAIN_AGENT)]}
-    )
-
-    print("\nMain Wedding Planner Agent's response: ")
-    print(main_wedding_planner_agent_response["messages"][-1].content)
+    print("\nWedding plan: ")
+    print(plan.text)
 
 
 if __name__ == "__main__":

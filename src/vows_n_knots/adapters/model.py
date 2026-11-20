@@ -18,19 +18,23 @@ from vows_n_knots.config.settings import (
     load_settings,
 )
 
-_MODELS: dict[tuple[str, str], Any] = {}
+_MODELS: dict[tuple[str, str, int | None, int | None], Any] = {}
 
 
 def create_chat_model(
     provider: str | None = None,
     model: str | None = None,
     env: Mapping[str, str] | None = None,
+    *,
+    max_output_tokens: int | None = None,
+    timeout: int | None = None,
 ) -> Any:
     """Build the LangChain chat model for the selected provider.
 
     `provider` overrides `LLM_PROVIDER`. `model` overrides that provider's
     configured model name. Repeated calls with the same provider and model
-    return the same instance.
+    return the same instance. `max_output_tokens` and `timeout` (seconds) are
+    passed to the model only when set, and are part of the instance key.
 
     Raises:
         ConfigurationError: the provider is unsupported, or its API key is unset.
@@ -46,10 +50,12 @@ def create_chat_model(
     model_name = (model or settings.chat_model_names[selected]).strip()
     _require_api_key(selected, model_name, source)
 
-    cache_key = (selected, model_name)
+    cache_key = (selected, model_name, max_output_tokens, timeout)
     cached = _MODELS.get(cache_key)
     if cached is None:
-        cached = _build_chat_model(selected, model_name)
+        cached = _build_chat_model(
+            selected, model_name, max_output_tokens=max_output_tokens, timeout=timeout
+        )
         _MODELS[cache_key] = cached
     return cached
 
@@ -60,7 +66,17 @@ def _require_api_key(provider: str, model: str, env: Mapping[str, str]) -> None:
         raise ConfigurationError(f"{key_name} is not set, so {model} cannot be used.")
 
 
-def _build_chat_model(provider: str, model: str) -> Any:
+def _build_chat_model(
+    provider: str,
+    model: str,
+    max_output_tokens: int | None = None,
+    timeout: int | None = None,
+) -> Any:
     from langchain.chat_models import init_chat_model
 
-    return init_chat_model(model_provider=provider, model=model)
+    extra: dict[str, Any] = {}
+    if max_output_tokens is not None:
+        extra["max_tokens"] = max_output_tokens
+    if timeout is not None:
+        extra["timeout"] = timeout
+    return init_chat_model(model_provider=provider, model=model, **extra)

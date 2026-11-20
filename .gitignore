@@ -221,3 +221,9 @@ __marimo__/
 
 # Application logs
 logs/
+
+# Search cache (SQLite) and its sidecar files
+data/cache.sqlite
+data/cache.sqlite-journal
+data/cache.sqlite-wal
+data/cache.sqlite-shm
