@@ -1,0 +1,213 @@
+{
+  "locale": {
+    "date": "en-GB",
+    "money": "en-US"
+  },
+  "app": {
+    "brand": "Vows n Knots",
+    "version": "v0.2.0",
+    "poweredBy": "Powered by",
+    "vendor": "Vidhaata Labs",
+    "disclaimer": "Disclaimer: Estimates from public sources, not quotes. Check every price with the vendor."
+  },
+  "welcome": {
+    "eyebrow": "Plan your wedding",
+    "title": "Tell us about your wedding. We'll build your plan.",
+    "intro": "Venues, vendors, budget and a timeline, each with its price and source. It takes about three minutes.",
+    "start": "Plan our wedding"
+  },
+  "common": {
+    "back": "Back",
+    "next": "Next",
+    "edit": "Edit",
+    "editSection": "Edit {{section}}"
+  },
+  "about": {
+    "step": "Step 1 of 4",
+    "title": "About you",
+    "couple": "Couple names",
+    "couplePlaceholder": "e.g. Amira & Noah",
+    "state": "State",
+    "statePlaceholder": "Choose a state",
+    "city": "City",
+    "cityNeedsState": "Choose a state first",
+    "cityPlaceholder": "Search for a city",
+    "noCityMatch": "No city in {{state}} matches. Only cities from the list can be chosen.",
+    "date": "Wedding date",
+    "dateType": "Wedding date type",
+    "exactDate": "Exact date",
+    "monthOnly": "Month only",
+    "chooseDate": "Choose a date",
+    "chooseMonth": "Choose a month",
+    "previousYear": "Previous year",
+    "nextYear": "Next year",
+    "guests": "Guest count",
+    "currency": "Currency"
+  },
+  "aboutErrors": {
+    "city": "Pick a city from the list. Typed cities can't be used.",
+    "exactDate": "Exact date must be later than today.",
+    "monthOnly": "Month only must be the current month or later.",
+    "guests": "Guest count must be between {{min}} and {{max}}.",
+    "names": "Add your names.",
+    "state": "Choose a state."
+  },
+  "budget": {
+    "step": "Step 2 of 4",
+    "title": "Budget and priorities",
+    "total": "Total budget",
+    "perGuest": "About {{amount}} per guest, from your range",
+    "matters": "What matters most (choose any number)",
+    "notice_one": "You've chosen {{count}} priority. Choosing more than three adds research and makes the build longer.",
+    "notice_other": "You've chosen {{count}} priorities. Choosing more than three adds research and makes the build longer."
+  },
+  "priority": {
+    "venue": "Venue shortlist",
+    "vendor": "Vendor research",
+    "budget": "Budget allocation",
+    "guest": "Guest experience",
+    "timeline": "Timeline",
+    "design": "Design direction",
+    "risk": "Risk management",
+    "travel": "Travel logistics"
+  },
+  "wedding": {
+    "step": "Step 3 of 4",
+    "title": "Your wedding",
+    "styles": "Style (choose any)",
+    "dietary": "Dietary needs",
+    "venue": "Venue setting",
+    "travel": "Maximum travel from downtown",
+    "minutes": "{{count}} min",
+    "traditions": "Traditions and family details",
+    "traditionsPlaceholder": "Traditions, family details, and anything to avoid"
+  },
+  "style": {
+    "Modern": "Modern",
+    "Romantic": "Romantic",
+    "Classic": "Classic",
+    "Garden": "Garden",
+    "Minimal": "Minimal",
+    "Luxury": "Luxury",
+    "Cultural fusion": "Cultural fusion",
+    "Destination": "Destination",
+    "Eco-conscious": "Eco-conscious",
+    "Black tie": "Black tie"
+  },
+  "dietary": {
+    "vegetarian": "Vegetarian",
+    "vegan": "Vegan",
+    "gluten-free": "Gluten-free",
+    "halal": "Halal",
+    "kosher": "Kosher",
+    "other": "Other"
+  },
+  "venueSetting": {
+    "Indoor": "Indoor",
+    "Outdoor": "Outdoor",
+    "Indoor-outdoor": "Indoor-outdoor"
+  },
+  "months": {
+    "1": "January",
+    "2": "February",
+    "3": "March",
+    "4": "April",
+    "5": "May",
+    "6": "June",
+    "7": "July",
+    "8": "August",
+    "9": "September",
+    "10": "October",
+    "11": "November",
+    "12": "December"
+  },
+  "monthsShort": {
+    "1": "Jan",
+    "2": "Feb",
+    "3": "Mar",
+    "4": "Apr",
+    "5": "May",
+    "6": "Jun",
+    "7": "Jul",
+    "8": "Aug",
+    "9": "Sep",
+    "10": "Oct",
+    "11": "Nov",
+    "12": "Dec"
+  },
+  "numbers": {
+    "4": "Four",
+    "5": "Five",
+    "6": "Six",
+    "7": "Seven",
+    "8": "Eight"
+  },
+  "review": {
+    "title": "Check your details",
+    "sectionAbout": "About you",
+    "sectionBudget": "Budget and priorities",
+    "sectionWedding": "Your wedding",
+    "buildNote": "The build takes about three minutes. Keep this page open: leaving stops the build, and nothing is kept.",
+    "build": "Build our plan",
+    "gate": "Choose a venue setting and a maximum travel time before building.",
+    "searchNotice": "{{word}} priorities mean {{searches}} searches. Choosing more than three adds research and makes the build longer.",
+    "dateNotSet": "Date not set",
+    "guests": "{{count}} guests",
+    "priorities_one": "{{list}} (1 priority)",
+    "priorities_other": "{{list}} ({{count}} priorities)",
+    "noPriorities": "No priorities chosen",
+    "noPreferences": "No preferences chosen",
+    "noStyles": "No styles chosen",
+    "withinTravel": "Within {{minutes}} min of downtown"
+  },
+  "building": {
+    "title": "Building your plan",
+    "failedTitle": "We couldn't finish your plan",
+    "failedAlert": "Writing the plan failed. Your research is saved, so a retry is quicker.",
+    "tryAgain": "Try again",
+    "timeLeft_one": "About {{count}} minute left",
+    "timeLeft_other": "About {{count}} minutes left",
+    "threeMinutes": "About three minutes left",
+    "almostThere": "Almost there",
+    "keepOpen": "Keep this page open while we build. Closing it stops the build.",
+    "stop": "Stop build",
+    "stopTitle": "Stop building your plan?",
+    "stopDescription": "The build stops and the plan is not kept. Research already finished is saved, so building again is quicker.",
+    "keepBuilding": "Keep building",
+    "stopConfirm": "Stop build"
+  },
+  "tile": {
+    "venues": "Venues",
+    "caterers": "Caterers",
+    "photographers": "Photographers",
+    "music": "Music",
+    "transport": "Transport",
+    "budget": "Budget",
+    "waiting": "Waiting",
+    "searching": "Searching",
+    "noFigures": "No current figures",
+    "checked": "{{done}} of {{total}} checked"
+  },
+  "plan": {
+    "yourPlan": "Your plan",
+    "meta": "{{city}}, {{state}} · {{date}} · {{count}} guests",
+    "budgetMidpoint": "Budget midpoint",
+    "perGuest": "{{amount}} per guest",
+    "fromRange": "From your range",
+    "venues": "Venues",
+    "shortlisted": "{{count}} shortlisted",
+    "seeBelow": "See below",
+    "withinTravel": "Within {{minutes}} min",
+    "estimatedTotal": "Estimated total",
+    "midpointOfRange": "Midpoint of your range",
+    "daysToGo": "Days to go",
+    "days": "{{count}} days",
+    "until": "Until {{date}}",
+    "monthOnly": "Month only",
+    "download": "Download",
+    "copy": "Copy",
+    "copied": "Plan copied. You can paste it into an email or a document.",
+    "startAgain": "Start again",
+    "noFigures": "We couldn't find current figures for this section."
+  }
+}
