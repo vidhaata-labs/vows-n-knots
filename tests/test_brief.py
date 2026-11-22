@@ -109,6 +109,42 @@ class BriefTest(unittest.TestCase):
             "- Risks, tradeoffs, and open questions for the couple.",
         ])
 
+    def test_structured_choices_override_text(self):
+        brief = self.build(
+            dietary=["vegan", "other"],
+            venue_setting="outdoor",
+            max_travel_minutes=90,
+        )
+        self.assertEqual(brief.dietary, ("vegan",))
+        self.assertEqual(brief.indoor_outdoor, "outdoor")
+        self.assertEqual(brief.max_travel_minutes, 90)
+
+    def test_structured_indoor_only_is_not_widened(self):
+        # Text like "indoor" alone reads as "either"; a structured choice must keep "indoor".
+        self.assertEqual(self.build(venue_setting="indoor").indoor_outdoor, "indoor")
+
+    def test_structured_choices_reject_unknown_values(self):
+        for overrides in (
+            {"dietary": ["pescatarian"]},
+            {"venue_setting": "underwater"},
+            {"max_travel_minutes": 50},
+        ):
+            with self.subTest(overrides=overrides):
+                with self.assertRaises(BriefError):
+                    self.build(**overrides)
+
+    def test_month_only_date_keeps_season_and_year(self):
+        brief = self.build(wedding_date=None, wedding_month="2027-07")
+        self.assertEqual(brief.date_precision, "month")
+        self.assertEqual(brief.wedding_year, 2027)
+        self.assertEqual(brief.season, "summer")
+        self.assertIn("Target date: July 2027", brief_to_text(brief))
+
+    def test_exact_date_is_day_precision(self):
+        brief = self.build()
+        self.assertEqual(brief.date_precision, "day")
+        self.assertIn("Target date: July 15, 2027", brief_to_text(brief))
+
     def test_requested_sections_without_priorities(self):
         text = brief_to_text(self.build(planning_priorities=[]))
         requested = text.split("Requested final plan:\n", 1)[1].splitlines()

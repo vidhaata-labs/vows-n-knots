@@ -1,5 +1,6 @@
 """Deterministic research plan: which web searches a brief needs."""
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 
 from vows_n_knots.brief import StructuredBrief
@@ -26,6 +27,30 @@ class ResearchTask:
     query: str
     cache_class: str  # "availability" or "price"
     include_domains: tuple[str, ...] = ()
+
+
+def research_search_count(priorities: Iterable[str]) -> int:
+    """How many searches the research plan runs for these priorities.
+
+    Only the priorities decide the count: each selected section adds a fixed number of tasks.
+    A test checks this against build_research_tasks, so the two cannot drift apart.
+    """
+    selected = set(priorities)
+    count = 0
+    if "Venue shortlist" in selected:
+        count += 1
+    if "Vendor research" in selected:
+        count += 3  # catering, photography, music
+    if "Budget allocation" in selected:
+        count += len(COST_CATEGORIES)
+    if "Travel logistics" in selected:
+        count += 1
+    return count
+
+
+def count_research_searches(brief: StructuredBrief) -> int:
+    """How many searches the research plan runs for this brief."""
+    return research_search_count(brief.priorities)
 
 
 def build_research_tasks(brief: StructuredBrief) -> list[ResearchTask]:

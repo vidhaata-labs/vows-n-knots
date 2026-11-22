@@ -165,7 +165,12 @@ class RunTasksTest(unittest.TestCase):
     def test_events_are_reported(self):
         events = []
         self.run_it([make_task()], FakeClient(), on_event=lambda *e: events.append(e))
-        self.assertEqual(events, [("task_started", "chicago venues"), ("task_finished", "ok")])
+        task = make_task()
+        self.assertEqual(
+            [e[:2] for e in events],
+            [("task_started", "chicago venues"), ("task_finished", "ok")],
+        )
+        self.assertTrue(all(e[2] == task for e in events))
 
     def test_successful_task_is_logged_with_section_query_status_and_urls(self):
         class UrlClient:
@@ -235,13 +240,63 @@ class RunTasksResilienceTest(unittest.TestCase):
         self.assertTrue(any("Cache write failed" in line for line in logs.output))
 
     def test_on_event_failure_does_not_abort_the_run(self):
-        def bad_listener(event, detail):
+        def bad_listener(event, detail, task):
             raise RuntimeError("listener broke")
 
         tasks = [make_task(f"query {i}") for i in range(3)]
         with self.assertLogs("vows_n_knots.search", level="WARNING"):
             results = self.run_it(tasks, FakeClient(), None, on_event=bad_listener)
         self.assertEqual([r.status for r in results], ["ok", "ok", "ok"])
+
+
+class ShouldStopTest(unittest.TestCase):
+    def run_it(self, tasks, client, cache=None, **kwargs):
+        return asyncio.run(run_tasks(tasks, client, cache, LOCATION, retry_delay=0, **kwargs))
+
+    def test_stop_before_start_makes_no_calls(self):
+        client = FakeClient()
+        results = self.run_it([make_task("a"), make_task("b")], client, None, should_stop=lambda: True)
+        self.assertEqual(client.calls, [])
+        self.assertEqual([r.status for r in results], ["failed", "failed"])
+        self.assertEqual([r.error for r in results], ["cancelled", "cancelled"])
+
+    def test_stop_during_a_wait_prevents_the_retry(self):
+        # The first attempt fails; the stop arrives while the search waits to retry.
+        stop = {"set": False}
+
+        class FailThenStop(FakeClient):
+            async def search(self, **kwargs):
+                self.calls.append(kwargs)
+                stop["set"] = True
+                raise RuntimeError("transient")
+
+        client = FailThenStop()
+        with self.assertLogs("vows_n_knots.search", level="WARNING"):
+            [result] = self.run_it([make_task()], client, None, should_stop=lambda: stop["set"])
+        self.assertEqual(len(client.calls), 1)
+        self.assertEqual(result.status, "failed")
+        self.assertEqual(result.error, "cancelled")
+
+    def test_stop_leaves_searches_in_flight_to_finish_and_be_cached(self):
+        # A search already running when the stop arrives completes normally: no TypeError,
+        # no retry, and its result is cached.
+        stop = {"set": False}
+
+        class SlowThenStop(FakeClient):
+            async def search(self, **kwargs):
+                self.calls.append(kwargs)
+                stop["set"] = True
+                await asyncio.sleep(0.05)
+                return {"results": []}
+
+        cache = SearchCache(None)
+        self.addCleanup(cache.close)
+        client = SlowThenStop()
+        with self.assertNoLogs("vows_n_knots.search", level="WARNING"):
+            [result] = self.run_it([make_task()], client, cache, should_stop=lambda: stop["set"])
+        self.assertEqual(result.status, "ok")
+        self.assertEqual(len(client.calls), 1)
+        self.assertEqual(cache.get(key_for(make_task())), {"results": []})
 
 
 if __name__ == "__main__":

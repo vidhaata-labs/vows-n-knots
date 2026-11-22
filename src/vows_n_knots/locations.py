@@ -44,6 +44,14 @@ class Place:
     name: str
 
 
+def display_name(name: str) -> str:
+    """The name a couple sees: "Chicago city" -> "Chicago", "Chicago Ridge village" -> "Chicago Ridge"."""
+    words = name.split()
+    if len(words) > 1 and words[-1].lower() in _LEGAL_SUFFIXES:
+        return " ".join(words[:-1])
+    return name
+
+
 def load_places(path: Path) -> list[Place]:
     with open(path, newline="", encoding="utf-8") as f:
         return [

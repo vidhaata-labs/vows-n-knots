@@ -4,7 +4,11 @@ from pathlib import Path
 from tests.test_brief import sample_form
 from vows_n_knots.brief import brief_from_legacy_form
 from vows_n_knots.locations import load_places
-from vows_n_knots.research import COST_CATEGORIES, build_research_tasks
+from vows_n_knots.research import (
+    COST_CATEGORIES,
+    build_research_tasks,
+    count_research_searches,
+)
 
 FIXTURE = Path(__file__).parent / "fixtures" / "places_sample.csv"
 SAMPLE_PRIORITIES = ["Venue shortlist", "Vendor research", "Budget allocation", "Timeline"]
@@ -30,6 +34,29 @@ class ResearchTasksTest(unittest.TestCase):
         self.assertEqual(
             [t.category for t in tasks if t.section == "Budget allocation"], list(COST_CATEGORIES)
         )
+
+    def test_count_matches_the_plan(self):
+        brief = self.build(SAMPLE_PRIORITIES + ["Travel logistics"])
+        self.assertEqual(count_research_searches(brief), len(build_research_tasks(brief)))
+
+    def test_priority_count_matches_the_plan_for_every_combination(self):
+        from itertools import combinations
+
+        from vows_n_knots.brief import PRIORITY_OPTIONS
+        from vows_n_knots.research import research_search_count
+
+        for size in range(len(PRIORITY_OPTIONS) + 1):
+            for chosen in combinations(PRIORITY_OPTIONS, size):
+                with self.subTest(priorities=chosen):
+                    brief = self.build(list(chosen))
+                    self.assertEqual(
+                        research_search_count(chosen), len(build_research_tasks(brief))
+                    )
+
+    def test_review_example_is_fifteen_searches(self):
+        # The Review wireframe: four priorities, including Travel logistics.
+        priorities = ["Venue shortlist", "Vendor research", "Budget allocation", "Travel logistics"]
+        self.assertEqual(count_research_searches(self.build(priorities)), 15)
 
     def test_travel_logistics_adds_one_task(self):
         tasks = build_research_tasks(self.build(SAMPLE_PRIORITIES + ["Travel logistics"]))
