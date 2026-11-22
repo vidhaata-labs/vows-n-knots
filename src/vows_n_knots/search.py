@@ -42,24 +42,33 @@ async def run_tasks(
     concurrency: int = CONCURRENCY,
     retries: int = RETRIES,
     retry_delay: float = 1.0,
-    on_event: Callable[[str, str], None] | None = None,
+    on_event: Callable[[str, str, ResearchTask], None] | None = None,
+    should_stop: Callable[[], bool] | None = None,
 ) -> list[TaskResult]:
-    """Run every task and return one result per task, in input order. Never raises per task."""
+    """Run every task and return one result per task, in input order. Never raises per task.
+
+    When `should_stop` returns True, no new search or retry starts; the tasks not yet started
+    come back as "failed" with the error "cancelled". Searches already in flight finish normally.
+    This avoids cancelling HTTP calls mid-flight: the Tavily client's error handling does not
+    survive cancellation (its `except aiohttp.ClientTimeout:` names a dataclass, not an exception).
+    """
     semaphore = asyncio.Semaphore(concurrency)
 
-    def emit(event: str, detail: str) -> None:
+    def emit(event: str, detail: str, task: ResearchTask) -> None:
         if on_event is None:
             return
         try:
-            on_event(event, detail)
+            on_event(event, detail, task)
         except Exception as exc:
             logger.warning("on_event callback failed for %s: %s", event, exc)
 
     async def run_one(task: ResearchTask) -> TaskResult:
         started = time.monotonic()
-        emit("task_started", task.query)
+        emit("task_started", task.query, task)
         result = await _execute(task, started)
-        if result.status == "failed":
+        if result.status == "failed" and result.error == "cancelled":
+            logger.info("Task [%s] %r: not started, build cancelled", task.section, task.query)
+        elif result.status == "failed":
             logger.warning(
                 "Task [%s] %r: failed: %s", task.section, task.query, result.error
             )
@@ -72,7 +81,7 @@ async def run_tasks(
             logger.info(
                 "Task [%s] %r: %s, urls: %s", task.section, task.query, result.status, urls
             )
-        emit("task_finished", result.status)
+        emit("task_finished", result.status, task)
         return result
 
     async def _execute(task: ResearchTask, started: float) -> TaskResult:
@@ -98,6 +107,8 @@ async def run_tasks(
         async with semaphore:
             last_error = ""
             for attempt in range(retries + 1):
+                if should_stop is not None and should_stop():
+                    return TaskResult(task, "failed", None, "cancelled", time.monotonic() - started)
                 try:
                     searched_at = time.time()
                     response = await client.search(

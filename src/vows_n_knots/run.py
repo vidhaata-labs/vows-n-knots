@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import threading
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -20,15 +21,24 @@ from vows_n_knots.config.research import (
 from vows_n_knots.config.settings import ConfigurationError, load_env
 from vows_n_knots.research import build_research_tasks
 from vows_n_knots.search import TaskResult, run_tasks
-from vows_n_knots.synthesis import synthesize
+from vows_n_knots.synthesis import SynthesisStopped, write_plan
 
 logger = get_logger(__name__)
+
+# How many characters of plan text go by between "writing" progress events.
+WRITING_REPORT_CHARS = 500
+
+
+class BuildCancelled(RuntimeError):
+    """The build was cancelled, for example because the browser left. No plan is returned."""
 
 
 @dataclass(frozen=True)
 class ProgressEvent:
     kind: str
     detail: str
+    section: str = ""
+    category: str = ""
 
 
 @dataclass(frozen=True)
@@ -81,6 +91,20 @@ def _section_status(brief: StructuredBrief, results: list[TaskResult]) -> dict[s
     return status
 
 
+async def _run_searches(
+    tasks: Any,
+    client: Any,
+    cache: Any,
+    location_id: str,
+    *,
+    cancel: threading.Event | None,
+    **kwargs: Any,
+) -> Any:
+    """Run the research tasks. A cancel stops new searches; searches already in flight finish."""
+    should_stop = cancel.is_set if cancel is not None else None
+    return await run_tasks(tasks, client, cache, location_id, should_stop=should_stop, **kwargs)
+
+
 def run_plan(
     brief: StructuredBrief,
     *,
@@ -89,17 +113,18 @@ def run_plan(
     search_client: Any | None = None,
     model: Any | None = None,
     retry_delay: float | None = None,
+    cancel: threading.Event | None = None,
 ) -> Plan:
     """Research the brief and synthesize a plan. Must not be called inside a running event loop.
 
     `retry_delay` is a test seam: when set it overrides the search module's retry delay.
     """
 
-    def emit(kind: str, detail: str = "") -> None:
+    def emit(kind: str, detail: str = "", section: str = "", category: str = "") -> None:
         if on_progress is None:
             return
         try:
-            on_progress(ProgressEvent(kind, detail))
+            on_progress(ProgressEvent(kind, detail, section, category))
         except Exception as exc:
             logger.warning("on_progress callback failed for %s: %s", kind, exc)
 
@@ -118,13 +143,16 @@ def run_plan(
         extra = {} if retry_delay is None else {"retry_delay": retry_delay}
 
         search_started = time.monotonic()
-        results = asyncio.run(run_tasks(
+        results = asyncio.run(_run_searches(
             tasks, counting, cache, brief.city_id,
-            on_event=lambda kind, detail: emit(kind, detail),
+            cancel=cancel,
+            on_event=lambda kind, detail, task: emit(kind, detail, task.section, task.category),
             **extra,
         )) if tasks else []
         search_seconds = time.monotonic() - search_started
 
+        if cancel is not None and cancel.is_set():
+            raise BuildCancelled("Build cancelled before writing the plan.")
         emit("synthesis_started")
         if model is None:
             model = create_chat_model(
@@ -136,7 +164,23 @@ def run_plan(
             if callable(with_thinking_mode):
                 model = with_thinking_mode(enabled=False)
         model_started = time.monotonic()
-        text = synthesize(model, brief_to_text(brief), results)
+        reported = 0
+
+        def on_written(chars: int) -> None:
+            # Report progress every WRITING_REPORT_CHARS characters, not on every token.
+            nonlocal reported
+            if chars - reported >= WRITING_REPORT_CHARS:
+                reported = chars
+                emit("writing", str(chars))
+
+        try:
+            text = write_plan(
+                model, brief_to_text(brief), brief.priorities, results,
+                should_stop=cancel.is_set if cancel is not None else None,
+                on_progress=on_written,
+            )
+        except SynthesisStopped as exc:
+            raise BuildCancelled("Build cancelled while writing the plan.") from exc
         model_seconds = time.monotonic() - model_started
 
         summary = RunSummary(
@@ -156,6 +200,10 @@ def run_plan(
         plan = Plan(text, _section_status(brief, results), summary)
         emit("done")
         return plan
+    except BuildCancelled as exc:
+        logger.info("Run cancelled: %s", exc)
+        emit("failed", "cancelled")
+        raise
     except Exception as exc:
         logger.error("Run failed: %s", exc)
         emit("failed", str(exc))

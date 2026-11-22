@@ -4,16 +4,17 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "vows-n-knots"
-version = "0.1.0"
-description = "A multi-agent AI wedding planner built with LangChain. Specialized agents collaborate on venue scouting, budget splits, catering, and schedules."
+version = "0.2.0"
+description = "A wedding planner that researches venues, vendors, budget and timeline from a short brief, then writes the plan."
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "dotenv>=0.9.9",
+    "fastapi>=0.165.0",
     "langchain-nvidia-ai-endpoints>=1.5.0",
     "langchain[google-genai,groq,openai]>=1.5.0",
-    "streamlit>=1.67.0",
     "tavily>=1.1.0",
+    "uvicorn>=0.54.0",
 ]
 
 [tool.setuptools.packages.find]

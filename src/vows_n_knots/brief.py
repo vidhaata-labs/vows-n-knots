@@ -55,6 +55,7 @@ class StructuredBrief:
     must_haves: str
     constraints: str
     traditions: str
+    date_precision: str = "day"  # "day" for an exact date, "month" for a month-only date
 
 
 def _season(month: int) -> str:
@@ -87,6 +88,43 @@ def _indoor_outdoor(text: str) -> str:
     return "either"
 
 
+DIETARY_CHOICES = DIETARY_KEYWORDS + ("other",)
+VENUE_SETTINGS = ("indoor", "outdoor", "indoor-outdoor")
+TRAVEL_CHOICES = (30, 45, 60, 90)
+
+
+def _dietary(form: Mapping[str, Any], must_haves: str) -> tuple[str, ...]:
+    """Structured tags when given; otherwise keywords found in the must-haves text."""
+    if "dietary" not in form:
+        return tuple(k for k in DIETARY_KEYWORDS if k in must_haves.lower())
+    tags = tuple(str(tag).strip().lower() for tag in form["dietary"])
+    unknown = [tag for tag in tags if tag not in DIETARY_CHOICES]
+    if unknown:
+        raise BriefError(f"Unknown dietary needs: {unknown}")
+    return tuple(tag for tag in tags if tag in DIETARY_KEYWORDS)
+
+
+def _venue_setting(form: Mapping[str, Any], text: str) -> str:
+    """A structured choice when given; otherwise inferred from free text."""
+    if "venue_setting" not in form:
+        return _indoor_outdoor(text)
+    setting = str(form["venue_setting"]).strip().lower()
+    if setting not in VENUE_SETTINGS:
+        raise BriefError(f"Venue setting must be one of {VENUE_SETTINGS}, got {setting!r}")
+    return setting
+
+
+def _max_travel(form: Mapping[str, Any], constraints: str) -> int:
+    """A structured choice when given; otherwise read from the constraints text."""
+    if "max_travel_minutes" not in form:
+        minutes = _MINUTES_RE.search(constraints)
+        return int(minutes.group(1)) if minutes else DEFAULT_MAX_TRAVEL_MINUTES
+    minutes = form["max_travel_minutes"]
+    if minutes not in TRAVEL_CHOICES:
+        raise BriefError(f"Maximum travel must be one of {TRAVEL_CHOICES}, got {minutes!r}")
+    return int(minutes)
+
+
 def brief_from_legacy_form(form: Mapping[str, Any], places: Sequence[Place]) -> StructuredBrief:
     place, state_code = _resolve_place(form["wedding_location"], places)
 
@@ -107,10 +145,19 @@ def brief_from_legacy_form(form: Mapping[str, Any], places: Sequence[Place]) -> 
     if unknown:
         raise BriefError(f"Unknown planning priorities: {unknown}")
 
-    wedding_date = form["wedding_date"]
+    if form.get("wedding_month"):
+        # A month-only date. The day is only a placeholder, so season and year come from the month.
+        year, month = (int(part) for part in str(form["wedding_month"]).split("-"))
+        wedding_date = date(year, month, 1)
+        precision = "month"
+    else:
+        wedding_date = form["wedding_date"]
+        precision = "day"
     must_haves = form["must_haves"]
     constraints = form["constraints"]
-    minutes = _MINUTES_RE.search(constraints)
+    dietary = _dietary(form, must_haves)
+    indoor_outdoor = _venue_setting(form, f"{constraints} {must_haves}")
+    max_travel_minutes = _max_travel(form, constraints)
 
     return StructuredBrief(
         couple_name=form["couple_name"],
@@ -130,13 +177,20 @@ def brief_from_legacy_form(form: Mapping[str, Any], places: Sequence[Place]) -> 
         priorities=priorities,
         tone=form["tone"],
         styles=tuple(form["wedding_styles"]),
-        dietary=tuple(k for k in DIETARY_KEYWORDS if k in must_haves.lower()),
-        indoor_outdoor=_indoor_outdoor(f"{constraints} {must_haves}"),
-        max_travel_minutes=int(minutes.group(1)) if minutes else DEFAULT_MAX_TRAVEL_MINUTES,
+        dietary=dietary,
+        indoor_outdoor=indoor_outdoor,
+        max_travel_minutes=max_travel_minutes,
         must_haves=must_haves,
         constraints=constraints,
         traditions=form["traditions"],
+        date_precision=precision,
     )
+
+
+def _target_date(brief: StructuredBrief) -> str:
+    if brief.date_precision == "month":
+        return brief.wedding_date.strftime("%B %Y")
+    return brief.wedding_date.strftime("%B %d, %Y")
 
 
 def brief_to_text(brief: StructuredBrief) -> str:
@@ -152,7 +206,7 @@ def brief_to_text(brief: StructuredBrief) -> str:
         f"""
         Couple or event name: {brief.couple_name}
         Wedding location: {brief.city_name}, {brief.state_name}
-        Target date: {brief.wedding_date.strftime("%B %d, %Y")}
+        Target date: {_target_date(brief)}
         Guest count: {brief.guest_count}
         Budget range: {brief.currency} {brief.budget_low:,} to {brief.budget_high:,}
         Budget per guest (midpoint): {brief.currency} {brief.budget_per_guest:,.2f}
